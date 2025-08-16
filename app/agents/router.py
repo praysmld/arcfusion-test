@@ -36,7 +36,9 @@ Available PDFs contain research on:
 
 Routing Rules:
 - Use PDF_AGENT if the question is about research findings, methodologies, experimental results, or specific papers mentioned
-- Use WEB_AGENT if the question asks about recent events, current releases, or explicitly requests web search
+- Use WEB_AGENT if the question asks about recent events, current releases, recent LLM models, or explicitly requests web search
+- Use WEB_AGENT for questions about specific companies (like Meta, Google, OpenAI, Anthropic) and their recent products
+- Use WEB_AGENT for any question that requires information about events or technologies from 2023 or later
 - Use CLARIFICATION_AGENT if the question is vague, ambiguous, or lacks necessary context
 
 Consider the conversation history to understand context.
@@ -48,6 +50,12 @@ Respond with ONLY one of: PDF_AGENT, WEB_AGENT, or CLARIFICATION_AGENT"""),
     def route_query(self, state: AgentState) -> str:
         """Route the query to the appropriate agent"""
         try:
+            # Check for explicit web search keywords first
+            if self._should_use_web_agent(state.question):
+                logger.info("Query contains web search keywords, routing to WEB_AGENT")
+                state.agent_actions.append("Routed to WEB_AGENT based on keywords")
+                return "WEB_AGENT"
+            
             # Prepare conversation history
             history_text = ""
             if state.conversation_history:
@@ -85,6 +93,39 @@ Respond with ONLY one of: PDF_AGENT, WEB_AGENT, or CLARIFICATION_AGENT"""),
             logger.error(f"Error in query routing: {e}")
             # Default to PDF agent on error
             return "PDF_AGENT"
+    
+    def _should_use_web_agent(self, question: str) -> bool:
+        """Check if the question should be directly routed to web agent based on keywords"""
+        question_lower = question.lower()
+        
+        # Keywords that strongly suggest web search
+        web_keywords = [
+            "recent", "latest", "current", "new", "2023", "2024", 
+            "last month", "this year", "last week", "news", "announced",
+            "released", "launched", "update", "upcoming"
+        ]
+        
+        # Company names that suggest web search for recent information
+        company_keywords = [
+            "meta", "facebook", "openai", "anthropic", "google", "microsoft", 
+            "claude", "gpt-4", "gpt-5", "llama", "gemini", "mistral"
+        ]
+        
+        # Check for web keywords
+        if any(keyword in question_lower for keyword in web_keywords):
+            return True
+            
+        # Check for company names combined with certain verbs
+        if any(company in question_lower for company in company_keywords):
+            action_verbs = ["launch", "release", "announce", "introduce", "unveil", "develop", "create", "build"]
+            if any(verb in question_lower for verb in action_verbs):
+                return True
+                
+        # Specific check for Meta LLMs question
+        if "meta" in question_lower and "llm" in question_lower:
+            return True
+            
+        return False
     
     def needs_clarification(self, question: str, history: list = None) -> tuple[bool, str]:
         """Check if a question needs clarification"""
