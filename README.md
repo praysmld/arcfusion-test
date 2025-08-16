@@ -48,6 +48,7 @@ graph TD
 - **LangGraph**: Agent orchestration and workflow management
 - **LangChain**: LLM integration and document processing
 - **ChromaDB**: Vector database for document embeddings
+- **OpenAI GPT-4o mini**: Large language model for clarification detection
 - **OpenAI GPT-4**: Large language model for generation
 - **Tavily API**: Web search capabilities
 - **Docker**: Containerization and deployment
@@ -105,6 +106,8 @@ docker build -t chat-with-pdf .
 docker run -p 8000:8000 --env-file .env chat-with-pdf
 ```
 
+> **Note**: If you encounter NumPy compatibility errors (`np.float_` was removed in NumPy 2.0), add `numpy<2.0.0` to your requirements.txt file to pin NumPy to a compatible version.
+
 ## 🐳 Running with Docker Compose
 
 ```bash
@@ -119,6 +122,8 @@ docker-compose down
 ```
 
 The application will be available at `http://localhost:8000`
+
+> **Important**: The Docker setup automatically runs the PDF ingestion process during startup. This ensures the vector database is populated before the API becomes available.
 
 ## 📚 API Documentation
 
@@ -148,6 +153,11 @@ POST /api/v1/clear-memory
 #### Health Check
 ```bash
 GET /api/v1/health
+```
+
+#### Get All Chunks
+```bash
+GET /api/v1/chunks?limit=10
 ```
 
 ## 🧪 Testing the System
@@ -187,7 +197,9 @@ The system handles the scenarios mentioned in the assignment:
 
 ### Agent Settings
 
-- **OpenAI Model**: `gpt-4-turbo-preview`
+- **Router Model**: `gpt-4-turbo-preview`
+- **Clarification Model**: `gpt-4o-mini` (optimized for clarification detection)
+- **PDF/Web Agent Model**: `gpt-4-turbo-preview`
 - **Max Iterations**: 10
 - **Session TTL**: 1 hour
 - **Max Session Memory**: 50 messages
@@ -252,31 +264,93 @@ arcfusion-test/
 - Sources are tracked and returned with responses
 - Confidence scores help indicate answer reliability
 
-## 🚀 Future Improvements
+## 🔍 System Trade-offs
 
-### Performance & Scalability
-- [ ] Implement Redis for session management
-- [ ] Add database connection pooling
-- [ ] Implement caching for frequent queries
-- [ ] Add support for multiple PDF collections
+### Architecture Trade-offs
 
-### Enhanced Features  
-- [ ] Document upload via API
-- [ ] Advanced query analysis with intent detection
-- [ ] Multi-modal support (images, tables)
-- [ ] Export conversation history
+| Design Choice | Benefits | Drawbacks | Considerations |
+|---------------|----------|-----------|----------------|
+| **Multi-Agent Architecture** | - Specialized handling for different query types<br>- Clear separation of concerns<br>- Modular and extensible | - Increased complexity<br>- Higher latency due to routing<br>- More API calls | Best for systems with diverse query types requiring specialized handling |
+| **Synchronous API** | - Simpler implementation<br>- Direct response flow<br>- Easier debugging | - Longer response times<br>- Potential timeouts for complex queries | Consider async endpoints for production with long-running queries |
+| **In-Memory Session Management** | - Fast access<br>- Simple implementation<br>- No external dependencies | - Limited by server memory<br>- Lost on server restart<br>- Not scalable across instances | Suitable for prototyping; use Redis/DB for production |
+| **Local Vector Database** | - Simple setup<br>- No external service dependencies<br>- Good for development | - Limited scalability<br>- Performance bottlenecks with large datasets<br>- No built-in redundancy | Works well for small to medium document collections |
 
-### Production Readiness
-- [ ] Comprehensive logging and monitoring
-- [ ] Rate limiting and authentication
-- [ ] Performance metrics and alerting
-- [ ] Load balancing support
+### Model Selection Trade-offs
 
-### AI Improvements
-- [ ] Fine-tuned embedding models
-- [ ] Advanced prompt engineering
-- [ ] Query expansion techniques
-- [ ] Hybrid search (semantic + keyword)
+| Model Choice | Benefits | Drawbacks | Use Cases |
+|--------------|----------|-----------|-----------|
+| **GPT-4-turbo for main agents** | - High accuracy<br>- Sophisticated reasoning<br>- Good context handling | - Higher cost<br>- Longer latency<br>- API rate limits | Complex queries requiring deep understanding |
+| **GPT-4o-mini for clarification** | - Lower cost<br>- Faster response times<br>- Sufficient for detection tasks | - Less sophisticated reasoning<br>- Smaller context window | Pattern recognition and classification tasks |
+| **Sentence Transformers for embeddings** | - Open source<br>- Fast embedding generation<br>- No API costs | - Less powerful than latest models<br>- Fixed model size | Document indexing and retrieval |
+
+### Deployment Trade-offs
+
+| Deployment Option | Benefits | Drawbacks | Best For |
+|-------------------|----------|-----------|----------|
+| **Docker Compose** | - Simple setup<br>- Consistent environment<br>- Good for development | - Limited scalability<br>- Manual scaling<br>- Basic orchestration | Development, testing, small deployments |
+| **Kubernetes** | - Horizontal scaling<br>- Advanced orchestration<br>- Production-ready | - Complex setup<br>- Resource overhead<br>- Learning curve | Production environments with scaling needs |
+| **Serverless** | - Auto-scaling<br>- Pay-per-use<br>- No infrastructure management | - Cold start latency<br>- Timeout limitations<br>- Vendor lock-in | Sporadic usage patterns, cost optimization |
+
+## 🛣️ Next Steps & Roadmap
+
+### Short-term Improvements (1-2 Months)
+
+1. **Performance Optimization**
+   - **Memory Usage**: Implement streaming responses to reduce memory footprint
+   - **Caching Layer**: Add Redis caching for frequent queries and embeddings
+   - **Batch Processing**: Optimize PDF ingestion with parallel processing
+   - **Action**: Implement Redis caching and streaming responses
+
+2. **Reliability Enhancements**
+   - **Error Recovery**: Add retry mechanisms for API calls
+   - **Fallback Strategies**: Implement model fallbacks for API rate limits
+   - **Monitoring**: Add comprehensive logging and alerting
+   - **Action**: Set up monitoring dashboard and implement retry logic
+
+3. **User Experience**
+   - **Response Quality**: Fine-tune prompts for more accurate answers
+   - **Feedback Loop**: Add user feedback collection mechanism
+   - **Action**: Implement A/B testing framework for prompt optimization
+
+### Mid-term Goals (3-6 Months)
+
+1. **Scalability**
+   - **Distributed Architecture**: Split services into microservices
+   - **Load Balancing**: Implement horizontal scaling for API endpoints
+   - **Database Migration**: Move from local ChromaDB to managed vector database
+   - **Action**: Refactor into microservices with Kubernetes deployment
+
+2. **Feature Expansion**
+   - **Document Management**: Add API for document upload and management
+   - **User Management**: Implement authentication and authorization
+   - **Multi-Collection Support**: Allow searching across different document sets
+   - **Action**: Build document management API with user permissions
+
+3. **AI Enhancements**
+   - **Model Evaluation**: Benchmark different LLMs for cost/performance
+   - **Custom Fine-tuning**: Train domain-specific models for improved accuracy
+   - **Hybrid Search**: Implement combined keyword and semantic search
+   - **Action**: Set up evaluation pipeline and fine-tune models
+
+### Long-term Vision (6+ Months)
+
+1. **Enterprise Integration**
+   - **SSO Integration**: Support enterprise authentication systems
+   - **Compliance Features**: Add audit logs and compliance reporting
+   - **Data Governance**: Implement data retention and privacy controls
+   - **Action**: Develop enterprise integration framework
+
+2. **Advanced Intelligence**
+   - **Autonomous Agents**: Implement agentic workflows for complex tasks
+   - **Multi-modal Support**: Add support for images, audio, and video content
+   - **Personalization**: User-specific response tuning and preferences
+   - **Action**: Research and prototype autonomous agent framework
+
+3. **Ecosystem Development**
+   - **Plugin System**: Create extensible plugin architecture
+   - **Developer SDK**: Build tools for custom agent development
+   - **Marketplace**: Allow sharing of custom agents and workflows
+   - **Action**: Design plugin architecture and developer documentation
 
 ## 🐛 Troubleshooting
 
@@ -286,6 +360,7 @@ arcfusion-test/
 2. **API key errors**: Ensure `OPENAI_API_KEY` is set in environment
 3. **Permission errors**: Check file permissions for data directories
 4. **Memory issues**: Reduce chunk size or use smaller embedding models
+5. **NumPy compatibility errors**: Add `numpy<2.0.0` to requirements.txt
 
 ### Logs
 

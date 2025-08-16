@@ -35,7 +35,7 @@ class AgentState(BaseModel):
     """State for the multi-agent graph"""
     question: str = Field(..., description="Original user question")
     session_id: str = Field(..., description="Session ID")
-    conversation_history: List[Dict[str, str]] = Field(default_factory=list, description="Conversation history")
+    conversation_history: List[Dict[str, Any]] = Field(default_factory=list, description="Conversation history")
     agent_actions: List[str] = Field(default_factory=list, description="Actions taken by agents")
     pdf_results: Optional[List[Dict[str, Any]]] = Field(None, description="Results from PDF search")
     web_results: Optional[List[Dict[str, Any]]] = Field(None, description="Results from web search")

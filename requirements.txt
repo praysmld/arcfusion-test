@@ -17,3 +17,4 @@ tiktoken==0.8
 redis==5.0.1
 aioredis==2.0.1
 httpx==0.25.2 
+numpy<2.0.0

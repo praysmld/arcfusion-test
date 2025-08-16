@@ -14,9 +14,13 @@ services:
       - CHROMA_PERSIST_DIRECTORY=/app/data/chroma
       - PDF_DIRECTORY=/app/papers
     volumes:
-      - ./data:/app/data
-      - ./papers:/app/papers
-      - ./logs:/app/logs
+      - ./papers:/app/papers:ro  # Mount PDFs as read-only
+      - ./data:/app/data  # Mount data directory for persistence
+    command: >
+      sh -c "
+        python scripts/ingest_pdfs.py --clear-existing &&
+        python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
@@ -24,17 +28,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  # Optional: Add a reverse proxy (uncomment if needed)
-  # nginx:
-  #   image: nginx:alpine
-  #   ports:
-  #     - "80:80"
-  #   volumes:
-  #     - ./nginx.conf:/etc/nginx/nginx.conf
-  #   depends_on:
-  #     - chat-with-pdf
-  #   restart: unless-stopped
 
 volumes:
   chroma_data:

@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 # Install Python dependencies
+# Note: requirements.txt includes numpy<2.0.0 to avoid compatibility issues with ChromaDB
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -35,5 +36,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
-# Run the application
+# Note: The actual startup command is defined in docker-compose.yml
+# It runs PDF ingestion before starting the API server:
+# 1. python scripts/ingest_pdfs.py --clear-existing
+# 2. python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 
